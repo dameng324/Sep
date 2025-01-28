@@ -54,13 +54,15 @@ static class SepParserFactory
         { Add(parsers, nameof(SepParserVector512NrwCmpExtMsbTzcnt), static sep => new SepParserVector512NrwCmpExtMsbTzcnt(sep)); }
 #endif
         if (Environment.Is64BitProcess && Avx2.IsSupported)
-        { Add(parsers, nameof(SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X), static sep => new SepParserAvx2PackCmpOrMoveMaskTzcnt(sep)); }
+        { Add(parsers, nameof(SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X), static sep => new SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X(sep)); }
         if (Avx2.IsSupported)
         { Add(parsers, nameof(SepParserAvx2PackCmpOrMoveMaskTzcnt), static sep => new SepParserAvx2PackCmpOrMoveMaskTzcnt(sep)); }
         if (Sse2.IsSupported)
         { Add(parsers, nameof(SepParserSse2PackCmpOrMoveMaskTzcnt), static sep => new SepParserSse2PackCmpOrMoveMaskTzcnt(sep)); }
         if (createUnaccelerated || Vector256.IsHardwareAccelerated)
         { Add(parsers, nameof(SepParserVector256NrwCmpExtMsbTzcnt), static sep => new SepParserVector256NrwCmpExtMsbTzcnt(sep)); }
+        if (createUnaccelerated || Vector128.IsHardwareAccelerated)
+        { Add(parsers, nameof(SepParserVector128NrwCmpExtMsbTzcntUnroll2X), static sep => new SepParserVector128NrwCmpExtMsbTzcntUnroll2X(sep)); }
         if (createUnaccelerated || Vector128.IsHardwareAccelerated)
         { Add(parsers, nameof(SepParserVector128NrwCmpExtMsbTzcnt), static sep => new SepParserVector128NrwCmpExtMsbTzcnt(sep)); }
         if (createUnaccelerated || Vector64.IsHardwareAccelerated)

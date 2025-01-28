@@ -5,33 +5,31 @@ using System.Runtime.Intrinsics;
 using static System.Runtime.CompilerServices.Unsafe;
 using static nietras.SeparatedValues.SepDefaults;
 using static nietras.SeparatedValues.SepParseMask;
-using ISA = System.Runtime.Intrinsics.X86.Avx2;
-using Vec = System.Runtime.Intrinsics.Vector256;
-using VecI16 = System.Runtime.Intrinsics.Vector256<short>;
-using VecUI8 = System.Runtime.Intrinsics.Vector256<byte>;
+using Vec = System.Runtime.Intrinsics.Vector128;
+using VecUI16 = System.Runtime.Intrinsics.Vector128<ushort>;
+using VecUI8 = System.Runtime.Intrinsics.Vector128<byte>;
 
 namespace nietras.SeparatedValues;
 
-sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
+sealed class SepParserVector128NrwCmpExtMsbTzcntUnroll2X : ISepParser
 {
     readonly char _separator;
+    readonly VecUI16 _max = Vec.Create((ushort)(Sep.Max.Separator + 1));
     readonly VecUI8 _nls = Vec.Create(LineFeedByte);
     readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
-    readonly VecUI8 _qts;
+    readonly VecUI8 _qts = Vec.Create(QuoteByte);
     readonly VecUI8 _sps;
     nuint _quoteCount = 0;
 
-    public unsafe SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X(SepParserOptions options)
+    public unsafe SepParserVector128NrwCmpExtMsbTzcntUnroll2X(SepParserOptions options)
     {
         _separator = options.Separator;
         _sps = Vec.Create((byte)_separator);
         _qts = Vec.Create((byte)options.QuotesOrSeparatorIfDisabled);
-        // Only 64-bit supported (since masks combined)
-        A.Assert(Unsafe.SizeOf<ulong>() == Unsafe.SizeOf<nuint>());
     }
 
-    // Parses 2 times 2 x char vectors e.g. 1 byte vector
-    public int PaddingLength => VecUI8.Count * 2;
+    // Parses 2 x char vectors e.g. 1 byte vector
+    public int PaddingLength => VecUI8.Count;
     public int QuoteCount => (int)_quoteCount;
 
     [SkipLocalsInit]
@@ -60,6 +58,7 @@ sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
         var separator = _separator;
         var quoteCount = _quoteCount;
         // Use instance fields to force values into registers
+        var max = _max;
         var nls = _nls; //Vec.Create(LineFeedByte);
         var crs = _crs; //Vec.Create(CarriageReturnByte);
         var qts = _qts; //Vec.Create(QuoteByte);
@@ -99,15 +98,16 @@ sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
         {
             ref var charsRef = ref Add(ref charsOriginRef, (uint)charsIndex);
             ref var byteRef = ref As<char, byte>(ref charsRef);
-            var v0 = ReadUnaligned<VecI16>(ref byteRef);
-            var v1 = ReadUnaligned<VecI16>(ref Add(ref byteRef, VecUI8.Count));
-            var v2 = ReadUnaligned<VecI16>(ref Add(ref byteRef, VecUI8.Count * 2));
-            var v3 = ReadUnaligned<VecI16>(ref Add(ref byteRef, VecUI8.Count * 3));
-            var packed0 = ISA.PackUnsignedSaturate(v0, v1);
-            var packed1 = ISA.PackUnsignedSaturate(v2, v3);
-            // Pack interleaves the two vectors need to permute them back
-            var bytes0 = ISA.Permute4x64(packed0.AsInt64(), 0b_11_01_10_00).AsByte();
-            var bytes1 = ISA.Permute4x64(packed1.AsInt64(), 0b_11_01_10_00).AsByte();
+            var v0 = ReadUnaligned<VecUI16>(ref byteRef);
+            var v1 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count));
+            var v2 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count * 2));
+            var v3 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count * 3));
+            var limit0 = Vec.Min(v0, max);
+            var limit1 = Vec.Min(v1, max);
+            var limit2 = Vec.Min(v2, max);
+            var limit3 = Vec.Min(v3, max);
+            var bytes0 = Vec.Narrow(limit0, limit1);
+            var bytes1 = Vec.Narrow(limit2, limit3);
 
             var nlsEq0 = Vec.Equals(bytes0, nls);
             var crsEq0 = Vec.Equals(bytes0, crs);
@@ -130,12 +130,12 @@ sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
             // Optimize for the case of no special character
             var specialCharMask0 = MoveMask(specialChars0);
             var specialCharMask1 = MoveMask(specialChars1);
-            var specialCharMask = ((nuint)specialCharMask1 << 32) | specialCharMask0;
+            var specialCharMask = (specialCharMask1 << 16) | specialCharMask0;
             if (specialCharMask != 0u)
             {
                 var separatorsMask0 = MoveMask(spsEq0);
                 var separatorsMask1 = MoveMask(spsEq1);
-                var separatorsMask = ((nuint)separatorsMask1 << 32) | separatorsMask0;
+                var separatorsMask = (separatorsMask1 << 16) | separatorsMask0;
                 // Optimize for case of only separators i.e. no endings or quotes.
                 // Add quote count to mask as hack to skip if quoting.
                 var testMask = specialCharMask + quoteCount;
@@ -148,7 +148,7 @@ sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
                 {
                     var separatorLineEndingsMask0 = MoveMask(lineEndingsSeparators0);
                     var separatorLineEndingsMask1 = MoveMask(lineEndingsSeparators1);
-                    var separatorLineEndingsMask = ((nuint)separatorLineEndingsMask1 << 32) | separatorLineEndingsMask0;
+                    var separatorLineEndingsMask = (separatorLineEndingsMask1 << 16) | separatorLineEndingsMask0;
                     if (separatorLineEndingsMask == testMask)
                     {
                         colInfosRefCurrent = ref ParseSeparatorsLineEndingsMasks<TColInfo, TColInfoMethods>(
@@ -204,5 +204,5 @@ sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static nuint MoveMask(VecUI8 v) => (uint)ISA.MoveMask(v);
+    static uint MoveMask(VecUI8 v) => v.ExtractMostSignificantBits();
 }
