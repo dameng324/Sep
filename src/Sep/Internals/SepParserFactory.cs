@@ -53,6 +53,8 @@ static class SepParserFactory
         if (Environment.Is64BitProcess && (createUnaccelerated || Vector512.IsHardwareAccelerated))
         { Add(parsers, nameof(SepParserVector512NrwCmpExtMsbTzcnt), static sep => new SepParserVector512NrwCmpExtMsbTzcnt(sep)); }
 #endif
+        if (Environment.Is64BitProcess && Avx2.IsSupported)
+        { Add(parsers, nameof(SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X), static sep => new SepParserAvx2PackCmpOrMoveMaskTzcnt(sep)); }
         if (Avx2.IsSupported)
         { Add(parsers, nameof(SepParserAvx2PackCmpOrMoveMaskTzcnt), static sep => new SepParserAvx2PackCmpOrMoveMaskTzcnt(sep)); }
         if (Sse2.IsSupported)
