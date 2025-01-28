@@ -85,7 +85,7 @@ sealed class SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X : ISepParser
         ref var colInfosRef = ref Add(ref colInfosRefOrigin, s._parsingRowColEndsOrInfosStartIndex);
         ref var colInfosRefCurrent = ref Add(ref colInfosRefOrigin, s._parsingRowColCount + s._parsingRowColEndsOrInfosStartIndex);
         ref var colInfosRefEnd = ref Add(ref colInfosRefOrigin, colInfosLength);
-        var colInfosStopLength = colInfosLength - VecUI8.Count - SepReaderState.ColEndsOrInfosExtraEndCount;
+        var colInfosStopLength = colInfosLength - VecUI8.Count * 2 - SepReaderState.ColEndsOrInfosExtraEndCount;
         ref var colInfosRefStop = ref Add(ref colInfosRefOrigin, colInfosStopLength);
 
         charsIndex -= VecUI8.Count * 2;

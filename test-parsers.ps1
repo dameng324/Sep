@@ -1,14 +1,16 @@
 #!/usr/bin/env pwsh
 Try {
     $parsers = @(
-        "SepParserAvx512PackCmpOrMoveMaskTzcnt",
-        "SepParserAvx2PackCmpOrMoveMaskTzcnt",
-        "SepParserSse2PackCmpOrMoveMaskTzcnt",
-        "SepParserVector512NrwCmpExtMsbTzcnt",
-        "SepParserVector256NrwCmpExtMsbTzcnt",
-        "SepParserVector128NrwCmpExtMsbTzcnt",
-        "SepParserVector64NrwCmpExtMsbTzcnt",
-        "SepParserIndexOfAny"
+        #"SepParserAvx512PackCmpOrMoveMaskTzcnt",
+        "SepParserAvx2PackCmpOrMoveMaskTzcntUnroll2X",
+        #"SepParserAvx2PackCmpOrMoveMaskTzcnt",
+        #"SepParserSse2PackCmpOrMoveMaskTzcnt",
+        #"SepParserVector512NrwCmpExtMsbTzcnt",
+        #"SepParserVector256NrwCmpExtMsbTzcnt",
+        "SepParserVector128NrwCmpExtMsbTzcntUnroll2X"
+        #"SepParserVector128NrwCmpExtMsbTzcnt",
+        #"SepParserVector64NrwCmpExtMsbTzcnt",
+        #"SepParserIndexOfAny"
     )
 
     foreach ($parser in $parsers) {
