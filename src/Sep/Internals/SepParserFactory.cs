@@ -5,6 +5,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#if NET8_0_OR_GREATER
+using System.Runtime.Intrinsics.Arm;
+#endif
 
 namespace nietras.SeparatedValues;
 
@@ -62,6 +65,9 @@ static class SepParserFactory
         { Add(parsers, nameof(SepParserAvx256To128CmpOrMoveMaskTzcnt), static sep => new SepParserAvx256To128CmpOrMoveMaskTzcnt(sep)); }
         if (Environment.Is64BitProcess && (createUnaccelerated || Vector512.IsHardwareAccelerated))
         { Add(parsers, nameof(SepParserVector512NrwCmpExtMsbTzcnt), static sep => new SepParserVector512NrwCmpExtMsbTzcnt(sep)); }
+        // ARM NEON AdvSimd
+        if (AdvSimd.IsSupported)
+        { Add(parsers, nameof(SepParserVector128AdvSimdNrwCmpExtMsbTzcnt), static sep => new SepParserVector128AdvSimdNrwCmpExtMsbTzcnt(sep)); }
 #endif
         if (Sse2.IsSupported)
         { Add(parsers, nameof(SepParserSse2PackCmpOrMoveMaskTzcnt), static sep => new SepParserSse2PackCmpOrMoveMaskTzcnt(sep)); }
