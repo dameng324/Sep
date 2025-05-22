@@ -103,8 +103,8 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
             var v1 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count));
 
             var r0 = AdvSimd.ExtractNarrowingSaturateLower(v0);
-            var r1 = AdvSimd.ExtractNarrowingSaturateLower(v1);
-            var bytes = Vec.Create(r0, r1);
+            var r1 = AdvSimd.ExtractNarrowingSaturateUpper(r0, v1);
+            var bytes = r1;
 
             var nlsEq = AdvSimd.CompareEqual(bytes, nls);
             var crsEq = AdvSimd.CompareEqual(bytes, crs);
