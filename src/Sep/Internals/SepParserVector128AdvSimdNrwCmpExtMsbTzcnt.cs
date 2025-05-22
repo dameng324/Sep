@@ -192,6 +192,7 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static byte PopCount(VecUI8 v) => AdvSimd.Arm64.AddAcross(Vec.ShiftRightLogical(v, 7)).ToScalar();
 
+    // Assumes all bits set, not just MSB
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static ushort MoveMaskAddv(VecUI8 v)
     {
