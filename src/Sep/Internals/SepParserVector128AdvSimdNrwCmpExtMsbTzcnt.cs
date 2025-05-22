@@ -187,18 +187,22 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
 
     // MoveMask remains the same, using the cross-platform intrinsic
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static nuint MoveMask(VecUI8 v) => AdvSimd.Arm64.IsSupported ? MoveMaskAddv(v) : v.ExtractMostSignificantBits();
+    static nuint MoveMask(VecUI8 v) => AdvSimd.Arm64.IsSupported ? MoveMaskAddAcross(v) : v.ExtractMostSignificantBits();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static byte PopCount(VecUI8 v) => AdvSimd.Arm64.AddAcross(Vec.ShiftRightLogical(v, 7)).ToScalar();
 
     // Assumes all bits set, not just MSB
+    // https://community.arm.com/arm-community-blogs/b/servers-and-cloud-computing-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
+    // https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes-or-two-sequences-to-substitute-for-the-missing-pmovmskb-instruction-on-arm-neon/
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static ushort MoveMaskAddv(VecUI8 v)
+    static ushort MoveMaskAddAcross(VecUI8 v)
     {
+        //var s = AdvSimd.ShiftRightLogicalNarrowingLower(v, 4);
         var input = v.AsUInt16();
         // TODO: Move bitmask to register
-        var bitmask = Vec.Create(0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080);
+        //var bitmask = Vec.Create(0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080);
+        var bitmask = Vec.Create(0x0102, 0x0408, 0x1020, 0x4080, 0x0102, 0x0408, 0x1020, 0x4080);
         var and = input & bitmask;
         return AdvSimd.Arm64.AddAcross(and).ToScalar();
     }
