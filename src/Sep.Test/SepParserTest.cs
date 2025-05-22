@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -61,6 +62,7 @@ public class SepParserTest
 #endif
             if (Avx2.IsSupported) { return typeof(SepParserAvx2PackCmpOrMoveMaskTzcnt); }
             if (Sse2.IsSupported) { return typeof(SepParserSse2PackCmpOrMoveMaskTzcnt); }
+            if (AdvSimd.IsSupported) { return typeof(SepParserVector128AdvSimdNrwCmpExtMsbTzcnt); }
             if (Vector256.IsHardwareAccelerated) { return typeof(SepParserVector256NrwCmpExtMsbTzcnt); }
             if (Vector128.IsHardwareAccelerated) { return typeof(SepParserVector128NrwCmpExtMsbTzcnt); }
             if (Vector64.IsHardwareAccelerated) { return typeof(SepParserVector64NrwCmpExtMsbTzcnt); }
