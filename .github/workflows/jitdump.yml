@@ -1,0 +1,72 @@
+name: JIT Disasm (No Docker)
+
+on:
+  workflow_dispatch:
+    inputs:
+      method:
+        description: 'Fully qualified method name (e.g. Namespace.Type::Method)'
+        required: true
+        type: string
+
+jobs:
+  jitdump:
+    name: JIT Dump (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-22.04-arm64
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 9 SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        global-json-file: global.json
+
+    - name: Cache jitutils build
+      id: cache-jitutils
+      uses: actions/cache@v3
+      with:
+        path: ~/.jitutils
+        key: jitutils-${{ matrix.arch }}-${{ hashFiles('**/jitutils/**') }}
+        restore-keys: |
+          jitutils-${{ matrix.arch }}-
+
+    - name: Build jitutils
+      if: steps.cache-jitutils.outputs.cache-hit != 'true'
+      run: |
+        git clone https://github.com/dotnet/jitutils ~/.jitutils
+        cd ~/.jitutils
+        ./build.sh
+
+    - name: Add jitutils to PATH
+      run: echo "${HOME}/.jitutils/bin" >> $GITHUB_PATH
+
+    - name: Publish project
+      run: dotnet publish -c Release -o out
+
+    - name: Run jit-dasm on selected method
+      run: |
+        mkdir -p dasm
+        jit-dasm --crossgen --output dasm \
+          --method "${{ github.event.inputs.method }}" \
+          ./out/*.dll
+
+    - name: Output disassembly to console
+      run: |
+        echo '--- Disassembly Output ---'
+        ls dasm
+        cat dasm/*.asm || echo 'Disassembly file not found.'
+
+    - name: Upload JIT disasm
+      uses: actions/upload-artifact@v4
+      with:
+        name: jit-dump-${{ matrix.arch }}
+        path: dasm

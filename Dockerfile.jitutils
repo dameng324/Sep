@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS base
+
+RUN apt-get update && apt-get install -y \
+    clang lldb libunwind-dev git cmake make curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/dotnet/jitutils /jitutils && \
+    cd /jitutils && ./build.sh
+
+ENV PATH="/jitutils/bin:$PATH"
+
+WORKDIR /app
+
+ENTRYPOINT ["bash"]
