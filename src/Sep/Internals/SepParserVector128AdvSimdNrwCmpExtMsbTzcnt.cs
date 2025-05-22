@@ -12,6 +12,8 @@ using VecUI8 = System.Runtime.Intrinsics.Vector128<byte>;
 
 namespace nietras.SeparatedValues;
 
+// https://lemire.me/blog/2017/07/10/pruning-spaces-faster-on-arm-processors-with-vector-table-lookups/
+
 sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
 {
     readonly char _separator;
@@ -185,5 +187,34 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
 
     // MoveMask remains the same, using the cross-platform intrinsic
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static nuint MoveMask(VecUI8 v) => v.ExtractMostSignificantBits();
+    static nuint MoveMask(VecUI8 v) => AdvSimd.Arm64.IsSupported ? MoveMaskAddv(v) : v.ExtractMostSignificantBits();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static byte PopCount(VecUI8 v) => AdvSimd.Arm64.AddAcross(Vec.ShiftRightLogical(v, 7)).ToScalar();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static ushort MoveMaskAddv(VecUI8 v)
+    {
+        var input = v.AsUInt16();
+        // TODO: Move bitmask to register
+        var bitmask = Vec.Create(0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080);
+        var and = input & bitmask;
+        return AdvSimd.Arm64.AddAcross(and).ToScalar();
+    }
+
+    //uint16_t neonmovemask_addv(uint8x16_t input8)
+    //{
+    //    uint16x8_t input = vreinterpretq_u16_u8(input8);
+    //    const uint16x8_t bitmask = { 0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080 };
+    //    uint16x8_t minput = vandq_u16(input, bitmask);
+    //    return vaddvq_u16(minput);
+    //}
+
+    //uint16_t neonmovemask_addv(uint8x16_t input8)
+    //{
+    //    uint16x8_t input = vreinterpretq_u16_u8(input8);
+    //    const uint16x8_t bitmask = { 0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080 };
+    //    uint16x8_t minput = vandq_u16(input, bitmask);
+    //    return vaddvq_u16(minput);
+    //}
 }
