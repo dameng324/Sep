@@ -13,6 +13,7 @@ namespace nietras.SeparatedValues;
 
 static class SepParserFactory
 {
+    internal const int MaxPaddingLength = 128;
     internal const string SepForceParserEnvName = "SEPFORCEPARSER";
 
     static Func<SepParserOptions, ISepParser>? _createBest = null;
