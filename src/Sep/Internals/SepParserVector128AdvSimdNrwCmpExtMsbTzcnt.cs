@@ -16,6 +16,7 @@ namespace nietras.SeparatedValues;
 
 sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
 {
+    static readonly int LoopCount = VecUI8.Count * 4;
     readonly char _separator;
     readonly VecUI8 _nls = Vec.Create(LineFeedByte);
     readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
@@ -30,8 +31,8 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
         _qts = Vec.Create((byte)options.QuotesOrSeparatorIfDisabled);
     }
 
-    // Parses 2 x char vectors e.g. 1 byte vector
-    public int PaddingLength => VecUI8.Count;
+    // Parses 8 x char vectors e.g. 4 byte vector
+    public int PaddingLength => LoopCount;
     public int QuoteCount => (int)_quoteCount;
 
     [SkipLocalsInit]
@@ -85,12 +86,12 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
         ref var colInfosRef = ref Add(ref colInfosRefOrigin, s._parsingRowColEndsOrInfosStartIndex);
         ref var colInfosRefCurrent = ref Add(ref colInfosRefOrigin, s._parsingRowColCount + s._parsingRowColEndsOrInfosStartIndex);
         ref var colInfosRefEnd = ref Add(ref colInfosRefOrigin, colInfosLength);
-        var colInfosStopLength = colInfosLength - VecUI8.Count - SepReaderState.ColEndsOrInfosExtraEndCount;
+        var colInfosStopLength = colInfosLength - LoopCount - SepReaderState.ColEndsOrInfosExtraEndCount;
         ref var colInfosRefStop = ref Add(ref colInfosRefOrigin, colInfosStopLength);
 
-        charsIndex -= VecUI8.Count;
+        charsIndex -= LoopCount;
     LOOPSTEP:
-        charsIndex += VecUI8.Count;
+        charsIndex += LoopCount;
     LOOPNOSTEP:
         if (charsIndex < charsEnd &&
             // If current is greater than or equal than "stop", then there is no
@@ -99,27 +100,48 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
         {
             ref var charsRef = ref Add(ref charsOriginRef, (uint)charsIndex);
             ref var byteRef = ref As<char, byte>(ref charsRef);
-            var v0 = ReadUnaligned<VecUI16>(ref byteRef);
-            var v1 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count));
+            var bytes0 = ReadNarrow(ref byteRef);
+            var bytes1 = ReadNarrow(ref Add(ref byteRef, VecUI8.Count * 1));
+            var bytes2 = ReadNarrow(ref Add(ref byteRef, VecUI8.Count * 2));
+            var bytes3 = ReadNarrow(ref Add(ref byteRef, VecUI8.Count * 3));
 
-            var r0 = AdvSimd.ExtractNarrowingSaturateLower(v0);
-            var r1 = AdvSimd.ExtractNarrowingSaturateUpper(r0, v1);
-            var bytes = r1;
+            var nlsEq0 = AdvSimd.CompareEqual(bytes0, nls);
+            var crsEq0 = AdvSimd.CompareEqual(bytes0, crs);
+            var qtsEq0 = AdvSimd.CompareEqual(bytes0, qts);
+            var spsEq0 = AdvSimd.CompareEqual(bytes0, sps);
+            var lineEndings0 = AdvSimd.Or(nlsEq0, crsEq0);
+            var lineEndingsSeparators0 = AdvSimd.Or(spsEq0, lineEndings0);
+            var specialChars0 = AdvSimd.Or(lineEndingsSeparators0, qtsEq0);
 
-            var nlsEq = AdvSimd.CompareEqual(bytes, nls);
-            var crsEq = AdvSimd.CompareEqual(bytes, crs);
-            var qtsEq = AdvSimd.CompareEqual(bytes, qts);
-            var spsEq = AdvSimd.CompareEqual(bytes, sps);
+            var nlsEq1 = AdvSimd.CompareEqual(bytes1, nls);
+            var crsEq1 = AdvSimd.CompareEqual(bytes1, crs);
+            var qtsEq1 = AdvSimd.CompareEqual(bytes1, qts);
+            var spsEq1 = AdvSimd.CompareEqual(bytes1, sps);
+            var lineEndings1 = AdvSimd.Or(nlsEq1, crsEq1);
+            var lineEndingsSeparators1 = AdvSimd.Or(spsEq1, lineEndings1);
+            var specialChars1 = AdvSimd.Or(lineEndingsSeparators1, qtsEq1);
 
-            var lineEndings = AdvSimd.Or(nlsEq, crsEq);
-            var lineEndingsSeparators = AdvSimd.Or(spsEq, lineEndings);
-            var specialChars = AdvSimd.Or(lineEndingsSeparators, qtsEq);
+            var nlsEq2 = AdvSimd.CompareEqual(bytes2, nls);
+            var crsEq2 = AdvSimd.CompareEqual(bytes2, crs);
+            var qtsEq2 = AdvSimd.CompareEqual(bytes2, qts);
+            var spsEq2 = AdvSimd.CompareEqual(bytes2, sps);
+            var lineEndings2 = AdvSimd.Or(nlsEq2, crsEq2);
+            var lineEndingsSeparators2 = AdvSimd.Or(spsEq2, lineEndings2);
+            var specialChars2 = AdvSimd.Or(lineEndingsSeparators2, qtsEq2);
+
+            var nlsEq3 = AdvSimd.CompareEqual(bytes3, nls);
+            var crsEq3 = AdvSimd.CompareEqual(bytes3, crs);
+            var qtsEq3 = AdvSimd.CompareEqual(bytes3, qts);
+            var spsEq3 = AdvSimd.CompareEqual(bytes3, sps);
+            var lineEndings3 = AdvSimd.Or(nlsEq3, crsEq3);
+            var lineEndingsSeparators3 = AdvSimd.Or(spsEq3, lineEndings3);
+            var specialChars3 = AdvSimd.Or(lineEndingsSeparators3, qtsEq3);
 
             // Optimize for the case of no special character
-            var specialCharMask = MoveMask(specialChars);
+            var specialCharMask = MoveMask(specialChars0, specialChars1, specialChars2, specialChars3);
             if (specialCharMask != 0u)
             {
-                var separatorsMask = MoveMask(spsEq);
+                var separatorsMask = MoveMask(spsEq0, spsEq1, spsEq2, spsEq3);
                 // Optimize for case of only separators i.e. no endings or quotes.
                 // Add quote count to mask as hack to skip if quoting.
                 var testMask = specialCharMask + quoteCount;
@@ -130,7 +152,7 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
                 }
                 else
                 {
-                    var separatorLineEndingsMask = MoveMask(lineEndingsSeparators);
+                    var separatorLineEndingsMask = MoveMask(lineEndingsSeparators0, lineEndingsSeparators1, lineEndingsSeparators2, lineEndingsSeparators3);
                     if (separatorLineEndingsMask == testMask)
                     {
                         colInfosRefCurrent = ref ParseSeparatorsLineEndingsMasks<TColInfo, TColInfoMethods>(
@@ -185,6 +207,18 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
         s._charsParseStart = Math.Min(charsEnd, charsIndex);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static VecUI8 ReadNarrow(ref byte byteRef)
+    {
+        var v0 = ReadUnaligned<VecUI16>(ref byteRef);
+        var v1 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count));
+
+        var r0 = AdvSimd.ExtractNarrowingSaturateLower(v0);
+        var r1 = AdvSimd.ExtractNarrowingSaturateUpper(r0, v1);
+        var bytes = r1;
+        return bytes;
+    }
+
     // MoveMask remains the same, using the cross-platform intrinsic
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     //static nuint MoveMask(VecUI8 v) => AdvSimd.Arm64.IsSupported ? MoveMaskAddAcross(v) : v.ExtractMostSignificantBits();
@@ -197,7 +231,7 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
     // https://community.arm.com/arm-community-blogs/b/servers-and-cloud-computing-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
     // https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes-or-two-sequences-to-substitute-for-the-missing-pmovmskb-instruction-on-arm-neon/
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static ushort MoveMaskAddAcross(VecUI8 v)
+    internal static ushort MoveMaskAddAcross(VecUI8 v)
     {
         //var s = AdvSimd.ShiftRightLogicalNarrowingLower(v, 4);
         var input = v.AsUInt16();
@@ -209,7 +243,7 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static ulong NeonMovemaskBulk(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
     {
         var bitmask = Vec.Create(
             0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
@@ -226,8 +260,10 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
         sum0 = AdvSimd.Arm64.AddPairwise(sum0, sum1);
         sum0 = AdvSimd.Arm64.AddPairwise(sum0, sum0);
 
-        return sum0.AsUInt64().GetElement(0);
+        return (nuint)sum0.AsUInt64().GetElement(0);
     }
+
+    // https://developer.arm.com/architectures/instruction-sets/intrinsics
 
     //uint16_t neonmovemask_addv(uint8x16_t input8)
     //{
