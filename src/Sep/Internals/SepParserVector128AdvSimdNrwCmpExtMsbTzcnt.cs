@@ -208,6 +208,27 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
         return AdvSimd.Arm64.AddAcross(and).ToScalar();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static ulong NeonMovemaskBulk(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    {
+        var bitmask = Vec.Create(
+            0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
+            0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
+        );
+
+        var t0 = AdvSimd.And(p0, bitmask);
+        var t1 = AdvSimd.And(p1, bitmask);
+        var t2 = AdvSimd.And(p2, bitmask);
+        var t3 = AdvSimd.And(p3, bitmask);
+
+        var sum0 = AdvSimd.Arm64.AddPairwise(t0, t1);
+        var sum1 = AdvSimd.Arm64.AddPairwise(t2, t3);
+        sum0 = AdvSimd.Arm64.AddPairwise(sum0, sum1);
+        sum0 = AdvSimd.Arm64.AddPairwise(sum0, sum0);
+
+        return sum0.AsUInt64().GetElement(0);
+    }
+
     //uint16_t neonmovemask_addv(uint8x16_t input8)
     //{
     //    uint16x8_t input = vreinterpretq_u16_u8(input8);
@@ -222,5 +243,20 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
     //    const uint16x8_t bitmask = { 0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080 };
     //    uint16x8_t minput = vandq_u16(input, bitmask);
     //    return vaddvq_u16(minput);
+    //}
+
+    //uint64_t neonmovemask_bulk(uint8x16_t p0, uint8x16_t p1, uint8x16_t p2, uint8x16_t p3)
+    //{
+    //    const uint8x16_t bitmask = { 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+    //                           0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
+    //    uint8x16_t t0 = vandq_u8(p0, bitmask);
+    //    uint8x16_t t1 = vandq_u8(p1, bitmask);
+    //    uint8x16_t t2 = vandq_u8(p2, bitmask);
+    //    uint8x16_t t3 = vandq_u8(p3, bitmask);
+    //    uint8x16_t sum0 = vpaddq_u8(t0, t1);
+    //    uint8x16_t sum1 = vpaddq_u8(t2, t3);
+    //    sum0 = vpaddq_u8(sum0, sum1);
+    //    sum0 = vpaddq_u8(sum0, sum0);
+    //    return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
     //}
 }
