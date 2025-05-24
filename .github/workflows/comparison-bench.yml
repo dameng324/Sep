@@ -49,6 +49,12 @@ jobs:
       - name: Comparison Bench
         shell: pwsh
         run: '& ./comparison-bench.ps1 -filter "${{ github.event.inputs.filter }}"'
+      - name: Trace Git Diff
+        shell: bash
+        run: |
+          echo "Tracing git diff"
+          git diff > git-diff.txt
+          cat git-diff.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmarks-${{ matrix.os }}
