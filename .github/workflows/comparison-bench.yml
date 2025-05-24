@@ -52,6 +52,7 @@ jobs:
       - name: Trace Git Diff
         shell: bash
         run: |
+          git status
           git diff HEAD --output=git-diff.txt
           echo "Tracing git diff"
           cat git-diff.txt
