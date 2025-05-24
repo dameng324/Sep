@@ -18,10 +18,10 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
 {
     static readonly int LoopCount = VecUI8.Count * 4;
     readonly char _separator;
-    readonly VecUI8 _nls = Vec.Create(LineFeedByte);
-    readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
-    readonly VecUI8 _qts;
-    readonly VecUI8 _sps;
+    //readonly VecUI8 _nls = Vec.Create(LineFeedByte);
+    //readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
+    //readonly VecUI8 _qts;
+    //readonly VecUI8 _sps;
     //readonly VecUI8 _bitmask = Vec.Create(
     //    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
     //    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
@@ -32,8 +32,8 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     public unsafe SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt(SepParserOptions options)
     {
         _separator = options.Separator;
-        _sps = Vec.Create((byte)_separator);
-        _qts = Vec.Create((byte)options.QuotesOrSeparatorIfDisabled);
+        //_sps = Vec.Create((byte)_separator);
+        //_qts = Vec.Create((byte)options.QuotesOrSeparatorIfDisabled);
     }
 
     // Parses 8 x char vectors e.g. 4 byte vector
@@ -66,10 +66,14 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
         var separator = _separator;
         var quoteCount = _quoteCount;
         // Use instance fields to force values into registers
-        var nls = _nls; //Vec.Create(LineFeedByte);
-        var crs = _crs; //Vec.Create(CarriageReturnByte);
-        var qts = _qts; //Vec.Create(QuoteByte);
-        var sps = _sps; //Vec.Create(_separator);
+        //var nls = _nls; //Vec.Create(LineFeedByte);
+        //var crs = _crs; //Vec.Create(CarriageReturnByte);
+        //var qts = _qts; //Vec.Create(QuoteByte);
+        //var sps = _sps; //Vec.Create(_separator);
+        var nls = Vec.Create(LineFeedByte);
+        var crs = Vec.Create(CarriageReturnByte);
+        var qts = Vec.Create(QuoteByte);
+        var sps = Vec.Create((byte)_separator);
         //var bitmask = _bitmask;
 
         // Unpack state fields
@@ -251,10 +255,17 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
     {
+        // Results in ldr from address, seems no way to do this via immediate,
+        // and enregistering it similar to CRs etc is not faster.
         var bitmask = Vec.Create(
             0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
             0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
         );
+        //var bitmask = Vec.Create(
+        //    0x0102040810204080,
+        //    0x0102040810204080
+        //).AsByte();
+        //var bitmask = AdvSimd.DuplicateToVector128(0x0102040810204080).AsByte();
         var t0 = AdvSimd.And(p0, bitmask);
         var t1 = AdvSimd.And(p1, bitmask);
         var t2 = AdvSimd.And(p2, bitmask);
