@@ -64,7 +64,7 @@ public class SepParserTest
 #endif
             if (Avx2.IsSupported) { return typeof(SepParserAvx2PackCmpOrMoveMaskTzcnt); }
             if (Sse2.IsSupported) { return typeof(SepParserSse2PackCmpOrMoveMaskTzcnt); }
-            if (AdvSimd.IsSupported) { return typeof(SepParserVector128AdvSimdNrwCmpExtMsbTzcnt); }
+            if (Environment.Is64BitProcess && AdvSimd.Arm64.IsSupported) { return typeof(SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt); }
             if (Vector256.IsHardwareAccelerated) { return typeof(SepParserVector256NrwCmpExtMsbTzcnt); }
             if (Vector128.IsHardwareAccelerated) { return typeof(SepParserVector128NrwCmpExtMsbTzcnt); }
             if (Vector64.IsHardwareAccelerated) { return typeof(SepParserVector64NrwCmpExtMsbTzcnt); }

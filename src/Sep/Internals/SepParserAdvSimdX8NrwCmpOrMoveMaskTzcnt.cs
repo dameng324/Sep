@@ -14,7 +14,7 @@ namespace nietras.SeparatedValues;
 
 // https://lemire.me/blog/2017/07/10/pruning-spaces-faster-on-arm-processors-with-vector-table-lookups/
 
-sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
+sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
 {
     static readonly int LoopCount = VecUI8.Count * 4;
     readonly char _separator;
@@ -24,7 +24,7 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
     readonly VecUI8 _sps;
     nuint _quoteCount = 0;
 
-    public unsafe SepParserVector128AdvSimdNrwCmpExtMsbTzcnt(SepParserOptions options)
+    public unsafe SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt(SepParserOptions options)
     {
         _separator = options.Separator;
         _sps = Vec.Create((byte)_separator);
