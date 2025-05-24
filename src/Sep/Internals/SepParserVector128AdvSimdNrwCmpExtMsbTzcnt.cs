@@ -99,11 +99,10 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
             !IsAddressLessThan(ref colInfosRefStop, ref colInfosRefCurrent))
         {
             ref var charsRef = ref Add(ref charsOriginRef, (uint)charsIndex);
-            ref var byteRef = ref As<char, byte>(ref charsRef);
-            var bytes0 = ReadNarrow(ref byteRef);
-            var bytes1 = ReadNarrow(ref Add(ref byteRef, VecUI8.Count * 1));
-            var bytes2 = ReadNarrow(ref Add(ref byteRef, VecUI8.Count * 2));
-            var bytes3 = ReadNarrow(ref Add(ref byteRef, VecUI8.Count * 3));
+            var bytes0 = ReadNarrow(ref charsRef);
+            var bytes1 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 1));
+            var bytes2 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 2));
+            var bytes3 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 3));
 
             var nlsEq0 = AdvSimd.CompareEqual(bytes0, nls);
             var crsEq0 = AdvSimd.CompareEqual(bytes0, crs);
@@ -208,8 +207,9 @@ sealed class SepParserVector128AdvSimdNrwCmpExtMsbTzcnt : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static VecUI8 ReadNarrow(ref byte byteRef)
+    static VecUI8 ReadNarrow(ref char charsRef)
     {
+        ref var byteRef = ref As<char, byte>(ref charsRef);
         var v0 = ReadUnaligned<VecUI16>(ref byteRef);
         var v1 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count));
 
