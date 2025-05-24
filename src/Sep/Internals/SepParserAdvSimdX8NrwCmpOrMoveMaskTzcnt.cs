@@ -22,6 +22,11 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
     readonly VecUI8 _qts;
     readonly VecUI8 _sps;
+    readonly VecUI8 _bitmask = Vec.Create(
+        0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
+        0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
+    );
+
     nuint _quoteCount = 0;
 
     public unsafe SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt(SepParserOptions options)
@@ -65,6 +70,7 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
         var crs = _crs; //Vec.Create(CarriageReturnByte);
         var qts = _qts; //Vec.Create(QuoteByte);
         var sps = _sps; //Vec.Create(_separator);
+        var bitmask = _bitmask;
 
         // Unpack state fields
         var chars = s._chars;
@@ -137,10 +143,10 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
             var specialChars3 = AdvSimd.Or(lineEndingsSeparators3, qtsEq3);
 
             // Optimize for the case of no special character
-            var specialCharMask = MoveMask(specialChars0, specialChars1, specialChars2, specialChars3);
+            var specialCharMask = MoveMask(specialChars0, specialChars1, specialChars2, specialChars3, bitmask);
             if (specialCharMask != 0u)
             {
-                var separatorsMask = MoveMask(spsEq0, spsEq1, spsEq2, spsEq3);
+                var separatorsMask = MoveMask(spsEq0, spsEq1, spsEq2, spsEq3, bitmask);
                 // Optimize for case of only separators i.e. no endings or quotes.
                 // Add quote count to mask as hack to skip if quoting.
                 var testMask = specialCharMask + quoteCount;
@@ -151,7 +157,7 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
                 }
                 else
                 {
-                    var separatorLineEndingsMask = MoveMask(lineEndingsSeparators0, lineEndingsSeparators1, lineEndingsSeparators2, lineEndingsSeparators3);
+                    var separatorLineEndingsMask = MoveMask(lineEndingsSeparators0, lineEndingsSeparators1, lineEndingsSeparators2, lineEndingsSeparators3, bitmask);
                     if (separatorLineEndingsMask == testMask)
                     {
                         colInfosRefCurrent = ref ParseSeparatorsLineEndingsMasks<TColInfo, TColInfoMethods>(
@@ -243,13 +249,8 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3, VecUI8 bitmask)
     {
-        var bitmask = Vec.Create(
-            0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
-            0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
-        );
-
         var t0 = AdvSimd.And(p0, bitmask);
         var t1 = AdvSimd.And(p1, bitmask);
         var t2 = AdvSimd.And(p2, bitmask);
