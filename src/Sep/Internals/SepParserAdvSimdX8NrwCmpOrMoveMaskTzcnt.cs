@@ -12,28 +12,30 @@ using VecUI8 = System.Runtime.Intrinsics.Vector128<byte>;
 
 namespace nietras.SeparatedValues;
 
+// Based primarily on Geoff Langdale's:
+// "Fitting My Head Through The ARM Holes or:
+//  Two Sequences to Substitute for the Missing PMOVMSKB Instruction on ARM NEON"
+// https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes-or-two-sequences-to-substitute-for-the-missing-pmovmskb-instruction-on-arm-neon/
+// Other sources for inspiration:
 // https://lemire.me/blog/2017/07/10/pruning-spaces-faster-on-arm-processors-with-vector-table-lookups/
-
+// https://community.arm.com/arm-community-blogs/b/servers-and-cloud-computing-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
+// https://developer.arm.com/architectures/instruction-sets/intrinsics
 sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
 {
     static readonly int LoopCount = VecUI8.Count * 4;
     readonly char _separator;
-    //readonly VecUI8 _nls = Vec.Create(LineFeedByte);
-    //readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
-    //readonly VecUI8 _qts;
-    //readonly VecUI8 _sps;
-    //readonly VecUI8 _bitmask = Vec.Create(
-    //    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
-    //    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
-    //);
+    readonly VecUI8 _nls = Vec.Create(LineFeedByte);
+    readonly VecUI8 _crs = Vec.Create(CarriageReturnByte);
+    readonly VecUI8 _qts;
+    readonly VecUI8 _sps;
 
     nuint _quoteCount = 0;
 
     public unsafe SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt(SepParserOptions options)
     {
         _separator = options.Separator;
-        //_sps = Vec.Create((byte)_separator);
-        //_qts = Vec.Create((byte)options.QuotesOrSeparatorIfDisabled);
+        _sps = Vec.Create((byte)_separator);
+        _qts = Vec.Create((byte)options.QuotesOrSeparatorIfDisabled);
     }
 
     // Parses 8 x char vectors e.g. 4 byte vector
@@ -66,15 +68,10 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
         var separator = _separator;
         var quoteCount = _quoteCount;
         // Use instance fields to force values into registers
-        //var nls = _nls; //Vec.Create(LineFeedByte);
-        //var crs = _crs; //Vec.Create(CarriageReturnByte);
-        //var qts = _qts; //Vec.Create(QuoteByte);
-        //var sps = _sps; //Vec.Create(_separator);
-        var nls = Vec.Create(LineFeedByte);
-        var crs = Vec.Create(CarriageReturnByte);
-        var qts = Vec.Create(QuoteByte);
-        var sps = Vec.Create((byte)_separator);
-        //var bitmask = _bitmask;
+        var nls = _nls; //Vec.Create(LineFeedByte);
+        var crs = _crs; //Vec.Create(CarriageReturnByte);
+        var qts = _qts; //Vec.Create(QuoteByte);
+        var sps = _sps; //Vec.Create(_separator);
 
         // Unpack state fields
         var chars = s._chars;
@@ -229,43 +226,16 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
         return bytes;
     }
 
-    // MoveMask remains the same, using the cross-platform intrinsic
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //static nuint MoveMask(VecUI8 v) => AdvSimd.Arm64.IsSupported ? MoveMaskAddAcross(v) : v.ExtractMostSignificantBits();
-    static nuint MoveMask(VecUI8 v) => v.ExtractMostSignificantBits();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static byte PopCount(VecUI8 v) => AdvSimd.Arm64.AddAcross(Vec.ShiftRightLogical(v, 7)).ToScalar();
-
-    // Assumes all bits set, not just MSB
-    // https://community.arm.com/arm-community-blogs/b/servers-and-cloud-computing-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
-    // https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes-or-two-sequences-to-substitute-for-the-missing-pmovmskb-instruction-on-arm-neon/
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ushort MoveMaskAddAcross(VecUI8 v)
-    {
-        //var s = AdvSimd.ShiftRightLogicalNarrowingLower(v, 4);
-        var input = v.AsUInt16();
-        // TODO: Move bitmask to register
-        var bitmask = Vec.Create(0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080);
-        //var bitmask = Vec.Create<ushort>(0x0102, 0x0408, 0x1020, 0x4080, 0x0102, 0x0408, 0x1020, 0x4080);
-        var and = AdvSimd.And(input, bitmask);
-        return AdvSimd.Arm64.AddAcross(and).ToScalar();
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    internal static nuint MoveMaskAddPairwise(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
     {
         // Results in ldr from address, seems no way to do this via immediate,
-        // and enregistering it similar to CRs etc is not faster.
+        // and enregistering it at top of loop is not faster.
         var bitmask = Vec.Create(
             0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
             0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
         );
-        //var bitmask = Vec.Create(
-        //    0x0102040810204080,
-        //    0x0102040810204080
-        //).AsByte();
-        //var bitmask = AdvSimd.DuplicateToVector128(0x0102040810204080).AsByte();
+
         var t0 = AdvSimd.And(p0, bitmask);
         var t1 = AdvSimd.And(p1, bitmask);
         var t2 = AdvSimd.And(p2, bitmask);
@@ -277,38 +247,99 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
         sum0 = AdvSimd.Arm64.AddPairwise(sum0, sum0);
 
         return (nuint)sum0.AsUInt64().GetElement(0);
+        /*
+        uint64_t neonmovemask_bulk(uint8x16_t p0, uint8x16_t p1, uint8x16_t p2, uint8x16_t p3)
+        {
+            const uint8x16_t bitmask = { 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+                                         0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
+            uint8x16_t t0 = vandq_u8(p0, bitmask);
+            uint8x16_t t1 = vandq_u8(p1, bitmask);
+            uint8x16_t t2 = vandq_u8(p2, bitmask);
+            uint8x16_t t3 = vandq_u8(p3, bitmask);
+            uint8x16_t sum0 = vpaddq_u8(t0, t1);
+            uint8x16_t sum1 = vpaddq_u8(t2, t3);
+            sum0 = vpaddq_u8(sum0, sum1);
+            sum0 = vpaddq_u8(sum0, sum0);
+            return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
+        }
+        */
     }
 
-    // https://developer.arm.com/architectures/instruction-sets/intrinsics
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    {
+        // These bitmasks can be stored as static readonly fields to optimize further
+        var bitmask1 = Vec.Create(
+            0x01, 0x10, 0x01, 0x10, 0x01, 0x10, 0x01, 0x10,
+            0x01, 0x10, 0x01, 0x10, 0x01, 0x10, 0x01, 0x10).AsByte();
 
-    //uint16_t neonmovemask_addv(uint8x16_t input8)
-    //{
-    //    uint16x8_t input = vreinterpretq_u16_u8(input8);
-    //    const uint16x8_t bitmask = { 0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080 };
-    //    uint16x8_t minput = vandq_u16(input, bitmask);
-    //    return vaddvq_u16(minput);
-    //}
+        var bitmask2 = Vec.Create(
+            0x02, 0x20, 0x02, 0x20, 0x02, 0x20, 0x02, 0x20,
+            0x02, 0x20, 0x02, 0x20, 0x02, 0x20, 0x02, 0x20).AsByte();
 
-    //uint16_t neonmovemask_addv(uint8x16_t input8)
-    //{
-    //    uint16x8_t input = vreinterpretq_u16_u8(input8);
-    //    const uint16x8_t bitmask = { 0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080 };
-    //    uint16x8_t minput = vandq_u16(input, bitmask);
-    //    return vaddvq_u16(minput);
-    //}
+        var bitmask3 = Vec.Create(
+            0x04, 0x40, 0x04, 0x40, 0x04, 0x40, 0x04, 0x40,
+            0x04, 0x40, 0x04, 0x40, 0x04, 0x40, 0x04, 0x40).AsByte();
 
-    //uint64_t neonmovemask_bulk(uint8x16_t p0, uint8x16_t p1, uint8x16_t p2, uint8x16_t p3)
-    //{
-    //    const uint8x16_t bitmask = { 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-    //                           0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
-    //    uint8x16_t t0 = vandq_u8(p0, bitmask);
-    //    uint8x16_t t1 = vandq_u8(p1, bitmask);
-    //    uint8x16_t t2 = vandq_u8(p2, bitmask);
-    //    uint8x16_t t3 = vandq_u8(p3, bitmask);
-    //    uint8x16_t sum0 = vpaddq_u8(t0, t1);
-    //    uint8x16_t sum1 = vpaddq_u8(t2, t3);
-    //    sum0 = vpaddq_u8(sum0, sum1);
-    //    sum0 = vpaddq_u8(sum0, sum0);
-    //    return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);
-    //}
+        var bitmask4 = Vec.Create(
+            0x08, 0x80, 0x08, 0x80, 0x08, 0x80, 0x08, 0x80,
+            0x08, 0x80, 0x08, 0x80, 0x08, 0x80, 0x08, 0x80).AsByte();
+
+        var t0 = AdvSimd.And(p0, bitmask1);
+
+        var t1 = AdvSimd.BitwiseSelect(bitmask2, p1, t0);
+        var t2 = AdvSimd.BitwiseSelect(bitmask3, p2, t1);
+        var tmp = AdvSimd.BitwiseSelect(bitmask4, p3, t2);
+
+        var sum = AdvSimd.Arm64.AddPairwise(tmp, tmp);
+
+        return (nuint)sum.AsUInt64().GetElement(0);
+        /*
+        uint64_t neonmovemask_bulk(uint8x16_t p0, uint8x16_t p1, uint8x16_t p2, uint8x16_t p3)
+        {
+            const uint8x16_t bitmask1 = { 0x01, 0x10, 0x01, 0x10, 0x01, 0x10, 0x01, 0x10,
+                                          0x01, 0x10, 0x01, 0x10, 0x01, 0x10, 0x01, 0x10};
+            const uint8x16_t bitmask2 = { 0x02, 0x20, 0x02, 0x20, 0x02, 0x20, 0x02, 0x20,
+                                          0x02, 0x20, 0x02, 0x20, 0x02, 0x20, 0x02, 0x20};
+            const uint8x16_t bitmask3 = { 0x04, 0x40, 0x04, 0x40, 0x04, 0x40, 0x04, 0x40,
+                                          0x04, 0x40, 0x04, 0x40, 0x04, 0x40, 0x04, 0x40};
+            const uint8x16_t bitmask4 = { 0x08, 0x80, 0x08, 0x80, 0x08, 0x80, 0x08, 0x80,
+                                          0x08, 0x80, 0x08, 0x80, 0x08, 0x80, 0x08, 0x80};
+
+            uint8x16_t t0 = vandq_u8(p0, bitmask1);
+            uint8x16_t t1 = vbslq_u8(bitmask2, p1, t0);
+            uint8x16_t t2 = vbslq_u8(bitmask3, p2, t1);
+            uint8x16_t tmp = vbslq_u8(bitmask4, p3, t2);
+            uint8x16_t sum = vpaddq_u8(tmp, tmp);
+            return vgetq_lane_u64(vreinterpretq_u64_u8(sum), 0);
+        }
+        */
+    }
+
+    // MoveMask remains the same, using the cross-platform intrinsic
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //static nuint MoveMask(VecUI8 v) => AdvSimd.Arm64.IsSupported ? MoveMaskAddAcross(v) : v.ExtractMostSignificantBits();
+    internal static nuint MoveMask(VecUI8 v) => v.ExtractMostSignificantBits();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static byte PopCount(VecUI8 v) => AdvSimd.Arm64.AddAcross(Vec.ShiftRightLogical(v, 7)).ToScalar();
+
+    // Assumes all bits set, not just MSB - APPEARS NOT TO BE WORKING
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ushort MoveMaskAddAcross(VecUI8 v)
+    {
+        var input = v.AsUInt16();
+        var bitmask = Vec.Create(0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080);
+        var and = AdvSimd.And(input, bitmask);
+        return AdvSimd.Arm64.AddAcross(and).ToScalar();
+        /*
+        uint16_t neonmovemask_addv(uint8x16_t input8)
+        {
+            uint16x8_t input = vreinterpretq_u16_u8(input8);
+            const uint16x8_t bitmask = { 0x0101, 0x0202, 0x0404, 0x0808, 0x1010, 0x2020, 0x4040, 0x8080 };
+            uint16x8_t minput = vandq_u16(input, bitmask);
+            return vaddvq_u16(minput);
+        }
+        */
+    }
 }
