@@ -265,6 +265,7 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
         */
     }
 
+    // PORT DOES NOT WORK
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static nuint MoveMaskBitwiseSelect(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
     {
