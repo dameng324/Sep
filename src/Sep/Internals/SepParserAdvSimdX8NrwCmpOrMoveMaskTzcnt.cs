@@ -227,7 +227,7 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static nuint MoveMaskAddPairwise(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
     {
         // Results in ldr from address, seems no way to do this via immediate,
         // and enregistering it at top of loop is not faster.
@@ -266,7 +266,7 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
+    internal static nuint MoveMaskBitwiseSelect(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3)
     {
         // These bitmasks can be stored as static readonly fields to optimize further
         var bitmask1 = Vec.Create(
