@@ -249,8 +249,12 @@ sealed class SepParserAdvSimdX8NrwCmpOrMoveMaskTzcnt : ISepParser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3, VecUI8 bitmask)
+    internal static nuint MoveMask(VecUI8 p0, VecUI8 p1, VecUI8 p2, VecUI8 p3, VecUI8 _)
     {
+        var bitmask = Vec.Create(
+            0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
+            0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
+        );
         var t0 = AdvSimd.And(p0, bitmask);
         var t1 = AdvSimd.And(p1, bitmask);
         var t2 = AdvSimd.And(p2, bitmask);
