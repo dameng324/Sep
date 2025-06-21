@@ -115,41 +115,45 @@ sealed class SepParserAdvSimdLoad4xNrwCmpOrBulkMoveMaskTzcnt : ISepParser
                     .Load4xVector128AndUnzip((ushort*)charsPtr);
                 var (ushort4, ushort5, ushort6, ushort7) = AdvSimd.Arm64
                     .Load4xVector128AndUnzip((ushort*)charsPtr + VecUI16.Count * 4);
+
                 var bytes0 = NarrowSaturated(ushort0, ushort4);
                 var bytes1 = NarrowSaturated(ushort1, ushort5);
                 var bytes2 = NarrowSaturated(ushort2, ushort6);
                 var bytes3 = NarrowSaturated(ushort3, ushort7);
 
                 var nlsEq0 = AdvSimd.CompareEqual(bytes0, nls);
-                var crsEq0 = AdvSimd.CompareEqual(bytes0, crs);
-                var qtsEq0 = AdvSimd.CompareEqual(bytes0, qts);
-                var spsEq0 = AdvSimd.CompareEqual(bytes0, sps);
-                var lineEndings0 = AdvSimd.Or(nlsEq0, crsEq0);
-                var lineEndingsSeparators0 = AdvSimd.Or(spsEq0, lineEndings0);
-                var specialChars0 = AdvSimd.Or(lineEndingsSeparators0, qtsEq0);
-
                 var nlsEq1 = AdvSimd.CompareEqual(bytes1, nls);
-                var crsEq1 = AdvSimd.CompareEqual(bytes1, crs);
-                var qtsEq1 = AdvSimd.CompareEqual(bytes1, qts);
-                var spsEq1 = AdvSimd.CompareEqual(bytes1, sps);
-                var lineEndings1 = AdvSimd.Or(nlsEq1, crsEq1);
-                var lineEndingsSeparators1 = AdvSimd.Or(spsEq1, lineEndings1);
-                var specialChars1 = AdvSimd.Or(lineEndingsSeparators1, qtsEq1);
-
                 var nlsEq2 = AdvSimd.CompareEqual(bytes2, nls);
-                var crsEq2 = AdvSimd.CompareEqual(bytes2, crs);
-                var qtsEq2 = AdvSimd.CompareEqual(bytes2, qts);
-                var spsEq2 = AdvSimd.CompareEqual(bytes2, sps);
-                var lineEndings2 = AdvSimd.Or(nlsEq2, crsEq2);
-                var lineEndingsSeparators2 = AdvSimd.Or(spsEq2, lineEndings2);
-                var specialChars2 = AdvSimd.Or(lineEndingsSeparators2, qtsEq2);
-
                 var nlsEq3 = AdvSimd.CompareEqual(bytes3, nls);
+
+                var crsEq0 = AdvSimd.CompareEqual(bytes0, crs);
+                var crsEq1 = AdvSimd.CompareEqual(bytes1, crs);
+                var crsEq2 = AdvSimd.CompareEqual(bytes2, crs);
                 var crsEq3 = AdvSimd.CompareEqual(bytes3, crs);
-                var qtsEq3 = AdvSimd.CompareEqual(bytes3, qts);
+
+                var spsEq0 = AdvSimd.CompareEqual(bytes0, sps);
+                var spsEq1 = AdvSimd.CompareEqual(bytes1, sps);
+                var spsEq2 = AdvSimd.CompareEqual(bytes2, sps);
                 var spsEq3 = AdvSimd.CompareEqual(bytes3, sps);
+
+                var qtsEq0 = AdvSimd.CompareEqual(bytes0, qts);
+                var qtsEq1 = AdvSimd.CompareEqual(bytes1, qts);
+                var qtsEq2 = AdvSimd.CompareEqual(bytes2, qts);
+                var qtsEq3 = AdvSimd.CompareEqual(bytes3, qts);
+
+                var lineEndings0 = AdvSimd.Or(nlsEq0, crsEq0);
+                var lineEndings1 = AdvSimd.Or(nlsEq1, crsEq1);
+                var lineEndings2 = AdvSimd.Or(nlsEq2, crsEq2);
                 var lineEndings3 = AdvSimd.Or(nlsEq3, crsEq3);
+
+                var lineEndingsSeparators0 = AdvSimd.Or(spsEq0, lineEndings0);
+                var lineEndingsSeparators1 = AdvSimd.Or(spsEq1, lineEndings1);
+                var lineEndingsSeparators2 = AdvSimd.Or(spsEq2, lineEndings2);
                 var lineEndingsSeparators3 = AdvSimd.Or(spsEq3, lineEndings3);
+
+                var specialChars0 = AdvSimd.Or(lineEndingsSeparators0, qtsEq0);
+                var specialChars1 = AdvSimd.Or(lineEndingsSeparators1, qtsEq1);
+                var specialChars2 = AdvSimd.Or(lineEndingsSeparators2, qtsEq2);
                 var specialChars3 = AdvSimd.Or(lineEndingsSeparators3, qtsEq3);
 
                 // Optimize for the case of no special character
