@@ -106,10 +106,20 @@ sealed class SepParserAdvSimdNrwCmpOrBulkMoveMaskTzcnt : ISepParser
             !IsAddressLessThan(ref colInfosRefStop, ref colInfosRefCurrent))
         {
             ref var charsRef = ref Add(ref charsOriginRef, (uint)charsIndex);
-            var bytes0 = ReadNarrow(ref charsRef);
-            var bytes1 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 1));
-            var bytes2 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 2));
-            var bytes3 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 3));
+
+            var (v0, v1) = Read(ref charsRef);
+            var (v2, v3) = Read(ref Add(ref charsRef, VecUI8.Count * 1));
+            var (v4, v5) = Read(ref Add(ref charsRef, VecUI8.Count * 2));
+            var (v6, v7) = Read(ref Add(ref charsRef, VecUI8.Count * 3));
+            var bytes0 = Narrow(v0, v1);
+            var bytes1 = Narrow(v2, v3);
+            var bytes2 = Narrow(v4, v5);
+            var bytes3 = Narrow(v6, v7);
+
+            //var bytes0 = ReadNarrow(ref charsRef);
+            //var bytes1 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 1));
+            //var bytes2 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 2));
+            //var bytes3 = ReadNarrow(ref Add(ref charsRef, VecUI8.Count * 3));
 
             var nlsEq0 = AdvSimd.CompareEqual(bytes0, nls);
             var nlsEq1 = AdvSimd.CompareEqual(bytes1, nls);
@@ -222,10 +232,21 @@ sealed class SepParserAdvSimdNrwCmpOrBulkMoveMaskTzcnt : ISepParser
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static VecUI8 ReadNarrow(ref char charsRef)
     {
-        ref var byteRef = ref As<char, byte>(ref charsRef);
-        var v0 = ReadUnaligned<VecUI16>(ref byteRef);
-        var v1 = ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count));
+        var (v0, v1) = Read(ref charsRef);
+        return Narrow(v0, v1);
+    }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static (VecUI16 v0, VecUI16 v1) Read(ref char charsRef)
+    {
+        ref var byteRef = ref As<char, byte>(ref charsRef);
+        return (ReadUnaligned<VecUI16>(ref byteRef),
+                ReadUnaligned<VecUI16>(ref Add(ref byteRef, VecUI8.Count)));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static VecUI8 Narrow(VecUI16 v0, VecUI16 v1)
+    {
         var r0 = AdvSimd.ExtractNarrowingSaturateLower(v0);
         var r1 = AdvSimd.ExtractNarrowingSaturateUpper(r0, v1);
         return r1;
